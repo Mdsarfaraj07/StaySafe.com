@@ -1,0 +1,60 @@
+services:
+  - type: web
+    name: staysafe-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/properties
+    envVars:
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_NAME
+        value: staysafe
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_MODE
+        value: VERIFY_IDENTITY
+      - key: JWT_SECRET
+        generateValue: true
+      - key: KYC_HASH_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: http://localhost:5173
+      - key: FRONTEND_URL
+        value: http://localhost:5173
+      - key: MAIL_ENABLED
+        value: "false"
+      - key: RAZORPAY_KEY_ID
+        value: ""
+      - key: RAZORPAY_KEY_SECRET
+        value: ""
+      - key: RAZORPAY_WEBHOOK_SECRET
+        value: ""
+      - key: PRIVATE_DOCUMENT_DIR
+        value: /tmp/staysafe-private-documents
+      - key: UPLOAD_DIR
+        value: /tmp/staysafe-uploads
+
+  - type: web
+    name: staysafe-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_HOST
+        fromService:
+          type: web
+          name: staysafe-api
+          property: host
+      - key: VITE_WHATSAPP_NUMBER
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -1,0 +1,62 @@
+# Local one-command development stack: docker compose up --build
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: staysafe-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: staysafe
+    ports:
+      - "3306:3306"
+    volumes:
+      - staysafe-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build: ./backend
+    container_name: staysafe-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: staysafe
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      DB_SSL_MODE: DISABLED
+      CORS_ORIGINS: http://localhost:5173
+      JWT_SECRET: local-dev-only-change-this-secret-0123456789
+      KYC_HASH_SECRET: local-dev-only-change-this-kyc-secret-0123456789
+      MAIL_ENABLED: "false"
+      PRIVATE_DOCUMENT_DIR: /app/private-documents
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/private-documents:/app/private-documents
+
+  frontend:
+    build: ./frontend
+    container_name: staysafe-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      API_PROXY_TARGET: http://backend:8080
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  staysafe-data:

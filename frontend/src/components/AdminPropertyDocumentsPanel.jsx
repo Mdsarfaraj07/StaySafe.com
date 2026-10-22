@@ -1,0 +1,14 @@
+import React, { useEffect, useState } from 'react';
+import { CheckCircle, Download, FileText, XCircle } from 'lucide-react';
+import { getPendingPropertyDocuments, reviewPropertyDocument, propertyDocumentDownloadUrl } from '../api/services';
+import { getToken } from '../api/client';
+
+export default function AdminPropertyDocumentsPanel({ showToast }) {
+  const [docs, setDocs] = useState([]);
+  const [remarks, setRemarks] = useState({});
+  const refresh = () => getPendingPropertyDocuments().then(setDocs).catch(e => showToast?.(e.message));
+  useEffect(() => { refresh(); }, []);
+  const review = async (d, status) => { try { await reviewPropertyDocument(d.id, status, remarks[d.id] || ''); showToast?.(`Document ${status.toLowerCase()}`); refresh(); } catch (e) { showToast?.(e.message); } };
+  const download = async (d) => { try { const res = await fetch(propertyDocumentDownloadUrl(d.id), { headers: { Authorization: `Bearer ${getToken()}` } }); if (!res.ok) throw new Error('Could not download document'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = d.originalFileName; a.click(); URL.revokeObjectURL(url); } catch (e) { showToast?.(e.message); } };
+  return <div className="space-y-4"><div><h2 className="text-lg font-black text-slate-900">Property document review</h2><p className="text-xs text-slate-500">Review electricity bills, ownership evidence and rental authorization. Files are private and served only to authorized users.</p></div>{docs.length === 0 ? <p className="p-8 text-center text-slate-400 text-sm border rounded-xl">No property documents awaiting review.</p> : docs.map(d => <article key={d.id} className="p-4 border rounded-xl space-y-3"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-sm text-slate-900">{d.propertyName}</p><p className="text-xs text-slate-500">{d.documentType.replaceAll('_', ' ')} · {d.originalFileName}</p><p className="text-[10px] text-slate-400 mt-1">Uploaded {new Date(d.uploadedAt).toLocaleString()}</p></div><button onClick={() => download(d)} className="inline-flex items-center gap-1 text-xs font-bold text-teal-700"><Download className="w-4 h-4"/>Download</button></div><textarea value={remarks[d.id] || ''} onChange={e => setRemarks({ ...remarks, [d.id]: e.target.value })} placeholder="Optional review remarks / rejection reason" className="w-full border rounded-lg p-2 text-xs"/><div className="flex gap-2"><button onClick={() => review(d, 'APPROVED')} className="px-3 py-2 rounded-lg bg-teal-600 text-white text-xs font-bold inline-flex gap-1 items-center"><CheckCircle className="w-4 h-4"/>Approve</button><button onClick={() => review(d, 'REJECTED')} className="px-3 py-2 rounded-lg bg-rose-600 text-white text-xs font-bold inline-flex gap-1 items-center"><XCircle className="w-4 h-4"/>Reject</button></div></article>)}</div>;
+}
